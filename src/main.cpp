@@ -178,9 +178,6 @@ int main() {
     Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
 
     //model loading
-    Model ourModel("resources/objects/backpack/backpack.obj");
-    ourModel.SetShaderTextureNamePrefix("material.");
-
     stbi_set_flip_vertically_on_load(false);
     Model airplane1Model("resources/objects/airplane1/F-16D.obj");
     airplane1Model.SetShaderTextureNamePrefix("material.");
@@ -321,14 +318,6 @@ int main() {
         glm::mat4 view = programState->camera.GetViewMatrix();
         ourShader.setMat4("projection", projection);
         ourShader.setMat4("view", view);
-
-        //render backpack
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model,
-                               programState->backpackPosition); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(programState->backpackScale));    // it's a bit too big for our scene, so scale it down
-        ourShader.setMat4("model", model);
-        ourModel.Draw(ourShader);
 
         //render airplane1
         glm::mat4 modelf16 = glm::mat4(1.0f);
