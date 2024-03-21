@@ -301,6 +301,13 @@ int main() {
 
         // don't forget to enable shader before setting uniforms
         ourShader.use();
+
+        //  lights
+        ourShader.setVec3("dirLight.direction", glm::vec3(0.2f, -0.5f, 0.8f));
+        ourShader.setVec3("dirLight.ambient", glm::vec3(-2.0f));
+        ourShader.setVec3("dirLight.diffuse", glm::vec3(2.5f));
+        ourShader.setVec3("dirLight.specular", glm::vec3(1.0f));
+
         pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
         ourShader.setVec3("pointLight.position", pointLight.position);
         ourShader.setVec3("pointLight.ambient", pointLight.ambient);
@@ -338,7 +345,7 @@ int main() {
 
         //render airplane2
         glm::mat4 modelHarrier = glm::mat4(1.0f);
-        modelHarrier = glm::translate(modelHarrier, glm::vec3(10, -10.0f, 35.0f));
+        modelHarrier = glm::translate(modelHarrier, glm::vec3(10, -10.0f, 55.0f));
         modelHarrier = glm::rotate(modelHarrier, -35.0f * 3.14159f / 160.0f , glm::vec3(0.0f, 0.0f, 1.0f));
         modelHarrier = glm::scale(modelHarrier, glm::vec3(glm::vec3(1.5f)));
         ourShader.setMat4("model", modelHarrier);
@@ -357,15 +364,11 @@ int main() {
 
         //render moon
         glm::mat4 modelMoon= glm::mat4(1.0f);
-        modelMoon = glm::translate(modelMoon,glm::vec3(-22.0f, 41.0f, 12.0f));
+        modelMoon = glm::translate(modelMoon,glm::vec3(-57.0f, 45.0f, 28.0f));
         modelMoon = glm::scale(modelMoon, glm::vec3(3.0f));
         modelMoon = glm::rotate( modelMoon,glm::radians(90.0f), glm::vec3(1.0f,0.0f , 0.0f));
         modelMoon = glm::rotate(modelMoon,glm::radians(currentFrame*20), glm::vec3(0.0f ,1.0f, 0.0f));
         modelMoon = glm::rotate(modelMoon,glm::radians(currentFrame*40), glm::vec3(1.0f , 0.0f,0.0f));
-        //sa ovim radi
-        //ourShader.setMat4("model", modelMoon);
-        //moonModel.Draw(ourShader);
-        //ovaj deo ne radi
         blendingShader.setMat4("model", modelMoon);
         moonModel.Draw(blendingShader);
 
