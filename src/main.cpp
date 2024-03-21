@@ -281,6 +281,7 @@ int main() {
 
     skyboxShader.use();
     skyboxShader.setInt("skybox", 0);
+    glDepthFunc(GL_LESS);
 
     //draw in wireframe
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -373,20 +374,23 @@ int main() {
         moonModel.Draw(blendingShader);
 
         //render skybox
+        glDepthMask(GL_FALSE);
+        glDepthFunc(GL_EQUAL);  //ovde sam pokusao ovo da podesim ali idalje ne radi
         skyboxShader.use();
-        view[3][0] = 0; // Postavljam x translaciju na nulu
-        view[3][1] = 0; // Postavljam y translaciju na nulu
-        view[3][2] = 0; // postavljam z translaciju na nulu
+        view[3][0] = 0;
+        view[3][1] = 0;
+        view[3][2] = 0;
         view[3][3] = 0;
         skyboxShader.setMat4("view", view);
         skyboxShader.setMat4("projection", projection);
+        glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS); //set depth function back to default
 
         glBindVertexArray(skyboxVAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
-        glDepthFunc(GL_LESS); // set depth function back to default
 
         if (programState->ImGuiEnabled)
             DrawImGui(programState);
