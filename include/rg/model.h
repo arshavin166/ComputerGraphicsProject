@@ -102,6 +102,7 @@ private:
 
         aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
+
         loadTextureMaterial(material, aiTextureType_DIFFUSE, "texture_diffuse", textures);
 
         loadTextureMaterial(material, aiTextureType_SPECULAR, "texture_specular",

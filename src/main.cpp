@@ -16,55 +16,73 @@
 
 #include <iostream>
 
+//FUNCTIONS-------------------------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
-
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
-
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
-
 void processInput(GLFWwindow *window);
-
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
-
 unsigned int loadCubemap(vector<std::string> faces);
+unsigned int loadTexture(const char* path);
+void renderCube();
 
-unsigned int loadTexture(const char* path, bool gammaCorrection);
-
-// settings
+//SETTINGS--------------------------------------------------------------------------------------------------------------
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
-// camera
-
+//CAMERA----------------------------------------------------------------------------------------------------------------
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
-bool firstMouse = true;
 
-// timing
+//GLOBAL VARIABLES------------------------------------------------------------------------------------------------------
+bool firstMouse = true;
+bool blinn = false;
+bool blinnON = false;
+bool bloom = false;
+bool bloomON = false;
+bool hdr = false;
+bool hdrON = false;
+
+//TIMING----------------------------------------------------------------------------------------------------------------
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+//LIGHTS----------------------------------------------------------------------------------------------------------------
 struct PointLight {
     glm::vec3 position;
     glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
 
-    float constant;
-    float linear;
-    float quadratic;
 };
 
+struct DirLight {
+    glm::vec3 direction;
+
+    glm::vec3 ambient;
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+};
+
+struct SpotLight {
+    glm::vec3 position;
+    glm::vec3 direction;
+    float cutOff;
+    float outerCutOff;
+
+    glm::vec3 ambient;
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+
+};
+
+//PROGRAM STATE---------------------------------------------------------------------------------------------------------
 struct ProgramState {
     glm::vec3 clearColor = glm::vec3(0);
     bool ImGuiEnabled = false;
     Camera camera;
     bool CameraMouseMovementUpdateEnabled = true;
-    glm::vec3 backpackPosition = glm::vec3(0.0f);
-    float backpackScale = 1.0f;
-    PointLight pointLight;
-    ProgramState()
-            : camera(glm::vec3(0.0f, 0.0f, 3.0f)) {}
+    ProgramState(): camera(glm::vec3(0.0f, 0.0f, 3.0f)) {}
 
     void SaveToFile(std::string filename);
 
@@ -102,12 +120,12 @@ void ProgramState::LoadFromFile(std::string filename) {
 }
 
 ProgramState *programState;
+bool cameraInfo = false;
 
 void DrawImGui(ProgramState *programState);
 
 int main() {
-    // glfw: initialize and configure
-    // ------------------------------
+//GLFW: INITIALIZATION AND CONFIGURATION--------------------------------------------------------------------------------
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -117,9 +135,8 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    // glfw window creation
-    // --------------------
-    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "UniverseProject", NULL, NULL);
+//GLFW: WINDOW CREATION/------------------------------------------------------------------------------------------------
+    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "nismo znali da je nevidljiv", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -130,11 +147,11 @@ int main() {
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetKeyCallback(window, key_callback);
-    // tell GLFW to capture our mouse
+    //tell GLFW to capture our mouse
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    // glad: load all OpenGL function pointers
-    // ---------------------------------------
+//GLAD: LOAD ALL OPENGL FUNCTION POINERS--------------------------------------------------------------------------------
+
     if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
@@ -148,7 +165,8 @@ int main() {
     if (programState->ImGuiEnabled) {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
-    // Init Imgui
+
+//IMGUI INITIALIZATION--------------------------------------------------------------------------------------------------
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
@@ -157,48 +175,100 @@ int main() {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330 core");
 
-    // configure global opengl state
-    // -----------------------------
+//GLOBAL OPENGL STATE---------------------------------------------------------------------------------------------------
     glEnable(GL_DEPTH_TEST);
 
-    //blending
+//BLENDING--------------------------------------------------------------------------------------------------------------
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    //face culling
+//FACE-CULLING----------------------------------------------------------------------------------------------------------
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
     glFrontFace(GL_CW);
 
-    // build and compile shaders
-    // -------------------------
-    Shader ourShader("resources/shaders/model_lighting.vs", "resources/shaders/model_lighting.fs");
+//SHADERS---------------------------------------------------------------------------------------------------------------
+    Shader modelShader("resources/shaders/model_lighting.vs", "resources/shaders/model_lighting.fs");
     Shader blendingShader("resources/shaders/model_lighting.vs", "resources/shaders/blending.fs" );
     Shader cubemapShader("resources/shaders/cubemaps.vs", "resources/shaders/cubemaps.fs");
     Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
+    Shader lightShader("resources/shaders/model_lighting.vs", "resources/shaders/lightBullet.fs");
 
-    //model loading
+//MODELS----------------------------------------------------------------------------------------------------------------
+    //set stbi false
     stbi_set_flip_vertically_on_load(false);
+
+    // grass
+    Model grassModel("resources/objects/grass/grass.obj");
+    grassModel.SetShaderTextureNamePrefix("material.");
+
+    Model airdefModel("resources/objects/defense/zsu.obj");
+    grassModel.SetShaderTextureNamePrefix("material.");
+
     Model airplane1Model("resources/objects/airplane1/F-16D.obj");
     airplane1Model.SetShaderTextureNamePrefix("material.");
-    stbi_set_flip_vertically_on_load(true);
 
-    stbi_set_flip_vertically_on_load(false);
     Model airplane2Model("resources/objects/airplane2/Harrier.obj");
     airplane2Model.SetShaderTextureNamePrefix("material.");
-    stbi_set_flip_vertically_on_load(true);
 
-    stbi_set_flip_vertically_on_load(false);
     Model rocketModel("resources/objects/rocket/Missile AIM-120 D [AMRAAM].obj");
     rocketModel.SetShaderTextureNamePrefix("material.");
-    stbi_set_flip_vertically_on_load(true);
 
-    stbi_set_flip_vertically_on_load(false);
     Model moonModel("resources/objects/moon/Moon 2K.obj");
     moonModel.SetShaderTextureNamePrefix("material.");
-    stbi_set_flip_vertically_on_load(true);
 
-    //skybox
+    //set stbi true
+    stbi_set_flip_vertically_on_load(true);
+//HDR/BLOOM-------------------------------------------------------------------------------------------------------------
+
+    //TO DO
+
+//LIGHTS----------------------------------------------------------------------------------------------------------------
+    //directional light
+    DirLight directional;
+    directional.direction = glm::vec3(-0.7f, -1.0f, -0.4f);
+    directional.ambient = glm::vec3(0.09f);
+    directional.diffuse = glm::vec3(0.4f);
+    directional.specular = glm::vec3(0.5f);
+
+    //pointlights
+    std::vector<glm::vec3> pointLightPositions;
+    pointLightPositions.push_back(glm::vec3(-14.0f, 213.0f, 55.0f));
+    pointLightPositions.push_back(glm::vec3(-13.0f, 207.0f, 53.0f));
+    pointLightPositions.push_back(glm::vec3(-18.0f, 205.0f, 54.0f));
+    pointLightPositions.push_back(glm::vec3(-21.0f, 190.0f, 59.0f));
+    pointLightPositions.push_back(glm::vec3(-10.0f, 178.0f, 55.0f));
+    pointLightPositions.push_back(glm::vec3(0.0f, 164.0f, 52.0f));
+    pointLightPositions.push_back(glm::vec3(11.0f, 150.0f, 50.0f));
+    pointLightPositions.push_back(glm::vec3(23.0f, 139.0f, 48.5f));
+    pointLightPositions.push_back(glm::vec3(28.0f, 125.0f, 48.2f));
+    pointLightPositions.push_back(glm::vec3(36.0f, 115.0f, 49.57f));
+    pointLightPositions.push_back(glm::vec3(48.0f, 101.0f, 52.2f));
+    pointLightPositions.push_back(glm::vec3(54.0f, 91.0f, 46.1f));
+    pointLightPositions.push_back(glm::vec3(62.0f, 79.0f, 45.3f));
+    pointLightPositions.push_back(glm::vec3(70.0f, 62.0f, 43.0f));
+    pointLightPositions.push_back(glm::vec3(68.0f, 52.0f, 47.0f));
+    pointLightPositions.push_back(glm::vec3(73.0f, 43.0f, 49.0f));
+    pointLightPositions.push_back(glm::vec3(77.0f, 33.0f, 52.0f));
+    pointLightPositions.push_back(glm::vec3(81.0f, 22.0f, 54.0f));
+
+    PointLight pointLights;
+    pointLights.ambient = glm::vec3(5.5f, 3.7f, 1.0f);
+    pointLights.diffuse = glm::vec3(5.5f, 3.7f, 1.0f);
+    pointLights.specular = glm::vec3(5.5f, 3.7f, 1.0f);
+
+    //spotlight
+    SpotLight spotlight;
+    spotlight.position = programState->camera.Position;
+    spotlight.direction = programState->camera.Front;
+    spotlight.ambient = glm::vec3(0.2f);
+    spotlight.diffuse = glm::vec3(1.0f, 0.894f, 0.627f);
+    spotlight.specular = glm::vec3(1.0f, 0.894f, 0.627f);
+    spotlight.cutOff = glm::cos(glm::radians(12.5f));
+    spotlight.outerCutOff = glm::cos(glm::radians(17.0f));
+
+
+//SKYBOX----------------------------------------------------------------------------------------------------------------
     float skyboxVertices[] = {
             //  positions
             -1.0f,  1.0f, -1.0f,
@@ -244,17 +314,6 @@ int main() {
             1.0f, -1.0f,  1.0f
     };
 
-    PointLight& pointLight = programState->pointLight;
-    pointLight.position = glm::vec3(7.0f, -10.0, 0.0);
-    pointLight.ambient = glm::vec3(0.5, 0.5, 0.5);
-    pointLight.diffuse = glm::vec3(1.0, 1.0, 1.0);
-    pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
-
-    pointLight.constant = 1.0f;
-    pointLight.linear = 0.0f;
-    pointLight.quadratic = 0.0f;
-
-    //skybox
     unsigned int skyboxVAO, skyboxVBO;
     glGenVertexArrays(1, &skyboxVAO);
     glGenBuffers(1, &skyboxVBO);
@@ -266,91 +325,129 @@ int main() {
 
     vector<std::string> faces
             {
-                    FileSystem::getPath("resources/textures/skybox/px.jpg"),
-                    FileSystem::getPath("resources/textures/skybox/nx.jpg"),
-                    FileSystem::getPath("resources/textures/skybox/ny.jpg"),
-                    FileSystem::getPath("resources/textures/skybox/py.jpg"),
-                    FileSystem::getPath("resources/textures/skybox/pz.jpg"),
-                    FileSystem::getPath("resources/textures/skybox/nz.jpg")
+                    FileSystem::getPath("resources/textures/skybox/right.tga"),
+                    FileSystem::getPath("resources/textures/skybox/left.tga"),
+                    FileSystem::getPath("resources/textures/skybox/up.tga"),
+                    FileSystem::getPath("resources/textures/skybox/down.tga"),
+                    FileSystem::getPath("resources/textures/skybox/front.tga"),
+                    FileSystem::getPath("resources/textures/skybox/back.tga")
             };
     unsigned int cubemapTexture = loadCubemap(faces);
 
-    //shader configuration
+//SHADERS CONFIGURATION-------------------------------------------------------------------------------------------------
     cubemapShader.use();
     cubemapShader.setInt("texture1", 0);
-
+    blendingShader.use();
+    blendingShader.setInt("texture1", 0);
     skyboxShader.use();
     skyboxShader.setInt("skybox", 0);
-    glDepthFunc(GL_LESS);
+    lightShader.use();
 
     //draw in wireframe
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-    // render loop
+//RENDER LOOP-----------------------------------------------------------------------------------------------------------
     while (!glfwWindowShouldClose(window)) {
-        // per-frame time logic
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        // input
         processInput(window);
 
-        // render
+        //render
         glClearColor(programState->clearColor.r, programState->clearColor.g, programState->clearColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // don't forget to enable shader before setting uniforms
-        ourShader.use();
+        //don't forget to enable shader before setting uniforms
+        modelShader.use();
 
-        //  lights
-        ourShader.setVec3("dirLight.direction", glm::vec3(0.2f, -0.5f, 0.8f));
-        ourShader.setVec3("dirLight.ambient", glm::vec3(-2.0f));
-        ourShader.setVec3("dirLight.diffuse", glm::vec3(2.5f));
-        ourShader.setVec3("dirLight.specular", glm::vec3(1.0f));
-
-        pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
-        ourShader.setVec3("pointLight.position", pointLight.position);
-        ourShader.setVec3("pointLight.ambient", pointLight.ambient);
-        ourShader.setVec3("pointLight.diffuse", pointLight.diffuse);
-        ourShader.setVec3("pointLight.specular", pointLight.specular);
-        ourShader.setFloat("pointLight.constant", pointLight.constant);
-        ourShader.setFloat("pointLight.linear", pointLight.linear);
-        ourShader.setFloat("pointLight.quadratic", pointLight.quadratic);
-        ourShader.setVec3("viewPosition", programState->camera.Position);
-        ourShader.setFloat("material.shininess", 32.0f);
-
-        // view/projection transformations
+        //view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
-                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 200.0f);
+                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 500.0f);
         glm::mat4 view = programState->camera.GetViewMatrix();
-        ourShader.setMat4("projection", projection);
-        ourShader.setMat4("view", view);
+        modelShader.setMat4("projection", projection);
+        modelShader.setMat4("view", view);
+        modelShader.setFloat("material.shininess", 16.0f);
+
+        //Directional light
+        modelShader.setVec3("directional.direction", directional.direction);
+        modelShader.setVec3("directional.ambient", directional.ambient);
+        modelShader.setVec3("directional.diffuse", directional.diffuse);
+        modelShader.setVec3("directional.specular", directional.specular);
+
+        //Point Lights
+        for(unsigned int i = 0; i < pointLightPositions.size(); i++){
+            modelShader.setVec3("pointlight[" + std::to_string(i) + "].position", pointLightPositions[i]);
+            modelShader.setVec3("pointlight[" + std::to_string(i) + "].ambient", pointLights.ambient * 0.05f);
+            modelShader.setVec3("pointlight[" + std::to_string(i) + "].diffuse", pointLights.diffuse * 0.8f);
+            modelShader.setVec3("pointlight[" + std::to_string(i) + "].specular", pointLights.specular * 0.1f);
+        }
+
+        //Spotlight
+        modelShader.setVec3("spotlight.position", programState->camera.Position);
+        modelShader.setVec3("spotlight.direction", programState->camera.Front);
+        modelShader.setVec3("spotlight.ambient", spotlight.ambient);
+        modelShader.setVec3("spotlight.diffuse", spotlight.diffuse);
+        modelShader.setFloat("spotlight.cutOff", spotlight.cutOff);
+        modelShader.setFloat("spotlight.outerCutOff", spotlight.outerCutOff);
+        modelShader.setBool("blinn", blinn);
+
+//      light bullets
+        glm::mat4 model = glm::mat4(1.0f);
+        lightShader.setMat4("projection", projection);
+        lightShader.setMat4("view", view);
+        for (unsigned int i = 0; i < 20; i++)
+        {
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, pointLightPositions[i]);
+            model = glm::scale(model, glm::vec3(0.2f)); // Make it a smaller cube
+            lightShader.setMat4("model", model);
+            lightShader.setVec3("lightColor",glm::vec3(1.0f, 0.0f, 0.0f));
+            renderCube();
+        }
+
+        //render grass
+        glm::mat4 modelGrass = glm::mat4(1.0f);
+        modelGrass = glm::translate(modelGrass, glm::vec3(0.0f, -20.0f, 0.0f));
+        float angle1 = 90.0f * 3.14159f / 180.0f;
+        modelGrass = glm::rotate(modelGrass, angle1, glm::vec3(-1.0f, 0.0f, 0.0f)); // rotate
+        modelGrass = glm::scale(modelGrass, glm::vec3(glm::vec3(1.0f)));
+        modelShader.setMat4("model", modelGrass);
+        grassModel.Draw(modelShader);
 
         //render airplane1
         glm::mat4 modelf16 = glm::mat4(1.0f);
-        modelf16 = glm::translate(modelf16, glm::vec3(10, -10.0f, -15.0f));
+        modelf16 = glm::translate(modelf16, glm::vec3(-18, 180.0f, -241.0f));
         modelf16 = glm::rotate(modelf16, -35.0f * 3.14159f / 160.0f , glm::vec3(0.0f, 0.0f, 1.0f));
-        modelf16 = glm::scale(modelf16, glm::vec3(glm::vec3(1.6f)));
-        ourShader.setMat4("model", modelf16);
-        airplane1Model.Draw(ourShader);
+        modelf16 = glm::scale(modelf16, glm::vec3(glm::vec3(4.5f)));
+        modelShader.setMat4("model", modelf16);
+        airplane1Model.Draw(modelShader);
 
         //render rocket
         glm::mat4 modelRocket = glm::mat4(1.0f);
-        modelRocket = glm::translate(modelRocket, glm::vec3(10, -10.0f, 5.0f));
+        modelRocket = glm::translate(modelRocket, glm::vec3(-20, 181.5f, -80.0f));
         modelRocket = glm::rotate(modelRocket, (float)glm::radians(-90.0), glm::vec3(0.0f, 0.0f, 1.0f));
         modelRocket = glm::rotate(modelRocket, (float)glm::radians(90.0), glm::vec3(1.0f, 0.0f, 0.0f));
-        modelRocket = glm::scale(modelRocket, glm::vec3(glm::vec3(0.025f)));
-        ourShader.setMat4("model", modelRocket);
-        rocketModel.Draw(ourShader);
+        modelRocket = glm::scale(modelRocket, glm::vec3(glm::vec3(0.07f)));
+        modelShader.setMat4("model", modelRocket);
+        rocketModel.Draw(modelShader);
 
         //render airplane2
         glm::mat4 modelHarrier = glm::mat4(1.0f);
-        modelHarrier = glm::translate(modelHarrier, glm::vec3(10, -10.0f, 55.0f));
+        modelHarrier = glm::translate(modelHarrier, glm::vec3(-10, 180.0f, 55.0f));
         modelHarrier = glm::rotate(modelHarrier, -35.0f * 3.14159f / 160.0f , glm::vec3(0.0f, 0.0f, 1.0f));
-        modelHarrier = glm::scale(modelHarrier, glm::vec3(glm::vec3(1.5f)));
-        ourShader.setMat4("model", modelHarrier);
-        airplane2Model.Draw(ourShader);
+        modelHarrier = glm::scale(modelHarrier, glm::vec3(glm::vec3(4.3f)));
+        modelShader.setMat4("model", modelHarrier);
+        airplane2Model.Draw(modelShader);
+
+        //reder defense
+        glm::mat4 modelZsu = glm::mat4(1.0f);
+        modelZsu = glm::translate(modelZsu, glm::vec3(115.0f, -14.0f, 34.0f));
+        modelZsu = glm::rotate(modelZsu, (float)glm::radians(-90.0), glm::vec3(0.0f, 1.0, 0.0f));
+        modelZsu = glm::rotate(modelZsu, (float)glm::radians(180.0), glm::vec3(1.0f, 0.0f, 0.0f));
+        modelZsu = glm::scale(modelZsu, glm::vec3(glm::vec3(0.65f)));
+        modelShader.setMat4("model", modelZsu);
+        airdefModel.Draw(modelShader);
 
         //blending
         blendingShader.use();
@@ -365,8 +462,8 @@ int main() {
 
         //render moon
         glm::mat4 modelMoon= glm::mat4(1.0f);
-        modelMoon = glm::translate(modelMoon,glm::vec3(-57.0f, 45.0f, 28.0f));
-        modelMoon = glm::scale(modelMoon, glm::vec3(3.0f));
+        modelMoon = glm::translate(modelMoon,glm::vec3(-57.0f, 300.0f, 28.0f));
+        modelMoon = glm::scale(modelMoon, glm::vec3(4.0f));
         modelMoon = glm::rotate( modelMoon,glm::radians(90.0f), glm::vec3(1.0f,0.0f , 0.0f));
         modelMoon = glm::rotate(modelMoon,glm::radians(currentFrame*20), glm::vec3(0.0f ,1.0f, 0.0f));
         modelMoon = glm::rotate(modelMoon,glm::radians(currentFrame*40), glm::vec3(1.0f , 0.0f,0.0f));
@@ -374,28 +471,24 @@ int main() {
         moonModel.Draw(blendingShader);
 
         //render skybox
-        glDepthMask(GL_FALSE);
-        glDepthFunc(GL_EQUAL);  //ovde sam pokusao ovo da podesim ali idalje ne radi
+        glDepthFunc(GL_LEQUAL);
         skyboxShader.use();
-        view[3][0] = 0;
-        view[3][1] = 0;
-        view[3][2] = 0;
-        view[3][3] = 0;
+        view = glm::mat4(glm::mat3(programState->camera.GetViewMatrix()));
         skyboxShader.setMat4("view", view);
         skyboxShader.setMat4("projection", projection);
-        glDepthMask(GL_TRUE);
-        glDepthFunc(GL_LESS); //set depth function back to default
 
+        //skybox cube
         glBindVertexArray(skyboxVAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
+        glDepthFunc(GL_LESS);
 
         if (programState->ImGuiEnabled)
             DrawImGui(programState);
 
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+        //glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -405,14 +498,13 @@ int main() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-    // glfw: terminate, clearing all previously allocated GLFW resources.
-    // ------------------------------------------------------------------
+
+    //glfw: terminate, clearing all previously allocated GLFW resources.
     glfwTerminate();
     return 0;
 }
 
-// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-// ---------------------------------------------------------------------------------------------------------
+//process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly-------------
 void processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
@@ -425,18 +517,46 @@ void processInput(GLFWwindow *window) {
         programState->camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(RIGHT, deltaTime);
+
+    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS && !blinnON)
+    {
+        blinn = !blinn;
+        blinnON = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_RELEASE)
+    {
+        blinnON = false;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS && !bloomON)
+    {
+        bloom = !bloom;
+        bloomON = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_RELEASE)
+    {
+        bloomON = false;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS && !hdrON)
+    {
+        hdr = !hdr;
+        hdrON = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_RELEASE)
+    {
+        hdrON = false;
+    }
 }
 
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
-// ---------------------------------------------------------------------------------------------
+//GLFW: whenever the window size changed (by OS or user resize) this callback function executes-------------------------
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
     // make sure the viewport matches the new window dimensions; note that width and
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
 }
 
-// glfw: whenever the mouse moves, this callback is called
-// -------------------------------------------------------
+//GLFW: whenever the mouse moves, this callback is called---=-----------------------------------------------------------
 void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
     if (firstMouse) {
         lastX = xpos;
@@ -454,13 +574,13 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
         programState->camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
-// glfw: whenever the mouse scroll wheel scrolls, this callback is called
-// ----------------------------------------------------------------------
+//GLFW: whenever the mouse scroll wheel scrolls, this callback is called------------------------------------------------
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
     programState->camera.ProcessMouseScroll(yoffset);
 }
 
-unsigned int loadTexture(char const * path, bool gammaCorrection)
+//TEXTURE LOADING-------------------------------------------------------------------------------------------------------
+unsigned int loadTexture(char const * path)
 {
     unsigned int textureID;
     glGenTextures(1, &textureID);
@@ -469,29 +589,20 @@ unsigned int loadTexture(char const * path, bool gammaCorrection)
     unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
     if (data)
     {
-        GLenum internalFormat;
-        GLenum dataFormat;
+        GLenum format;
         if (nrComponents == 1)
-        {
-            internalFormat = dataFormat = GL_RED;
-        }
+            format = GL_RED;
         else if (nrComponents == 3)
-        {
-            internalFormat = gammaCorrection ? GL_SRGB : GL_RGB;
-            dataFormat = GL_RGB;
-        }
+            format = GL_RGB;
         else if (nrComponents == 4)
-        {
-            internalFormat = gammaCorrection ? GL_SRGB_ALPHA : GL_RGBA;
-            dataFormat = GL_RGBA;
-        }
+            format = GL_RGBA;
 
         glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, dataFormat, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, internalFormat == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT); // for this tutorial: use GL_CLAMP_TO_EDGE to prevent semi-transparent borders. Due to interpolation it takes texels from next repeat
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, internalFormat == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, format == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT); // for this tutorial: use GL_CLAMP_TO_EDGE to prevent semi-transparent borders. Due to interpolation it takes texels from next repeat
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, format == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -506,6 +617,7 @@ unsigned int loadTexture(char const * path, bool gammaCorrection)
     return textureID;
 }
 
+//CUBEMAP LOADING-------------------------------------------------------------------------------------------------------
 unsigned int loadCubemap(vector<std::string> faces)
 {
     unsigned int textureID;
@@ -536,11 +648,11 @@ unsigned int loadCubemap(vector<std::string> faces)
     return textureID;
 }
 
+//DRAW IMGUI------------------------------------------------------------------------------------------------------------
 void DrawImGui(ProgramState *programState) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-
 
     {
         static float f = 0.0f;
@@ -548,12 +660,12 @@ void DrawImGui(ProgramState *programState) {
         ImGui::Text("Universe");
         ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-        ImGui::DragFloat3("Backpack position", (float*)&programState->backpackPosition);
-        ImGui::DragFloat("Backpack scale", &programState->backpackScale, 0.05, 0.1, 4.0);
+        //ImGui::DragFloat3("Backpack position", (float*)&programState->backpackPosition);
+        //ImGui::DragFloat("Backpack scale", &programState->backpackScale, 0.05, 0.1, 4.0);
 
-        ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
-        ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
-        ImGui::DragFloat("pointLight.quadratic", &programState->pointLight.quadratic, 0.05, 0.0, 1.0);
+        //ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
+        //ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
+        //ImGui::DragFloat("pointLight.quadratic", &programState->pointLight.quadratic, 0.05, 0.0, 1.0);
         ImGui::End();
     }
 
@@ -571,6 +683,7 @@ void DrawImGui(ProgramState *programState) {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
+//KEYCALLBACK-----------------------------------------------------------------------------------------------------------
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
         programState->ImGuiEnabled = !programState->ImGuiEnabled;
@@ -581,4 +694,77 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
     }
+}
+
+//DRAW LIGHTCUBES - BULLETS---------------------------------------------------------------------------------------------
+unsigned int cubeVAO = 0;
+unsigned int cubeVBO = 0;
+void renderCube(){
+    // initialize (if necessary)
+    if (cubeVAO == 0){
+        float vertices[] = {
+                //position                      //normals                           //texture coords
+                // back face
+                -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f, // bottom-left
+                1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, // top-right
+                1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f, // bottom-right
+                1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, // top-right
+                -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f, // bottom-left
+                -1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f, // top-left
+                // front face
+                -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f, // bottom-left
+                1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f, // bottom-right
+                1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, // top-right
+                1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, // top-right
+                -1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f, // top-left
+                -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f, // bottom-left
+                // left face
+                -1.0f,  1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-right
+                -1.0f,  1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f, // top-left
+                -1.0f, -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-left
+                -1.0f, -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-left
+                -1.0f, -1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f, // bottom-right
+                -1.0f,  1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-right
+                // right face
+                1.0f,  1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-left
+                1.0f, -1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-right
+                1.0f,  1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, // top-right
+                1.0f, -1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-right
+                1.0f,  1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-left
+                1.0f, -1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f, // bottom-left
+                // bottom face
+                -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f, // top-right
+                1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f, // top-left
+                1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f, // bottom-left
+                1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f, // bottom-left
+                -1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f, // bottom-right
+                -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f, // top-right
+                // top face
+                -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f, // top-left
+                1.0f,  1.0f , 1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f, // bottom-right
+                1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f, // top-right
+                1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f, // bottom-right
+                -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f, // top-left
+                -1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f  // bottom-left
+        };
+        glGenVertexArrays(1, &cubeVAO);
+        glGenBuffers(1, &cubeVBO);
+
+        glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        glBindVertexArray(cubeVAO);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+    }
+    // render Cube
+    glBindVertexArray(cubeVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
 }

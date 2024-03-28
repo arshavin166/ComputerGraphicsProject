@@ -1,4 +1,4 @@
-# Install script for directory: /home/lazar/Desktop/Universe/libs/imgui
+# Install script for directory: /home/lazar/Desktop/ComputerGraphicsProject/libs/imgui
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
