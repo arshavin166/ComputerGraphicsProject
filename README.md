@@ -17,7 +17,6 @@ Projekat iz Računarske Grafike.
 
 `B` - off/on bloom
 
-
 <br>
 
 ---------------------
@@ -33,5 +32,5 @@ Projekat iz Računarske Grafike.
 <br>
 
 ------------------------
-# Radi0:
+# Student:
 * Lazar Dunjić, 265/2021 (GitHub username: arshavin166)
