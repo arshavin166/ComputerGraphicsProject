@@ -1,4 +1,4 @@
-Projekat iz Računarske Grafike.
+# Računarska Grafika - Projekat
 
 ---------------------
 # Komande
@@ -24,12 +24,14 @@ Projekat iz Računarske Grafike.
 ---------------------
 
 # Implementirano iz A:
-[x] Cubemaps
-[ ] Anti Aliasing
+- [x] Cubemaps
+
+- [ ] Anti Aliasing
 
 # Implementirano iz B:
-[x] Bloom
-[x] HDR
+- [x] Bloom
+
+- [x] HDR
 
 <br>
 
