@@ -3,48 +3,33 @@ Projekat iz Računarske Grafike.
 ---------------------
 # Komande
 
-`F1` - on/off imgui
+`F1` - on/off Imgui
 
-`G`  - on/off grayscale
+`G`  - on/off Gamma
 
-<<<<<<< HEAD
 `L`  - switch between Phong/Blinn-Phond model light
-=======
-`L`  - switch between Phong/Blinn-Phond model light 
->>>>>>> a99b25c406358d40b6524adc26cb3c0a187ce22b
 
-`J` - lower exposure
+`N` - lower Exposure
 
-`K` - higher exposure
+`M` - higher Exposure
 
-<<<<<<< HEAD
 `H` - off/on HDR
-=======
-`H` - off/on HDR 
->>>>>>> a99b25c406358d40b6524adc26cb3c0a187ce22b
 
-`B` - off/on bloom
+`B` - off/on Bloom
+
+`X` - off/on Grayscale
 
 <br>
 
 ---------------------
 
 # Implementirano iz A:
-<<<<<<< HEAD
 [x] Cubemaps
-[x] Anti Aliasing
+[ ] Anti Aliasing
 
 # Implementirano iz B:
 [x] Bloom
 [x] HDR
-=======
-* Cubemaps
-* Anti Aliasing
-# Implementirano iz B:
-* Bloom
-* HDR
-
->>>>>>> a99b25c406358d40b6524adc26cb3c0a187ce22b
 
 <br>
 
