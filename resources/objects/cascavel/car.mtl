@@ -1,0 +1,35 @@
+# Blender MTL File: 'None'
+# Material Count: 3
+
+newmtl damaged_EE-9_body
+Ns 179.999996
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 0.000000 0.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd damaged EE-9_body_Diffuse.jpeg
+
+newmtl damaged_EE-9_elements
+Ns 179.999996
+Ka 1.000000 1.000000 1.000000
+Kd 0.058824 0.501961 0.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd damaged EE-9_elements_Diffuse.jpeg
+
+newmtl damaged_EE-9_tire
+Ns 179.999996
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.329412 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd damaged EE-9_tire_Diffuse.jpeg

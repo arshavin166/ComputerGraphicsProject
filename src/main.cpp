@@ -44,7 +44,7 @@ bool hdr = false;
 bool hdrON = false;
 bool gammaEnabled = false;
 bool gammaON = false;
-float exposure = 0.77f;
+float exposure = 0.824f;
 bool grayscale = false;
 bool grayscaleON = false;
 
@@ -220,6 +220,15 @@ int main() {
 
     Model rocketModel("resources/objects/rocket/Missile AIM-120 D [AMRAAM].obj");
     rocketModel.SetShaderTextureNamePrefix("material.");
+
+    Model carModel("resources/objects/cascavel/car.obj");
+    carModel.SetShaderTextureNamePrefix("material.");
+
+    Model houseModel("resources/objects/ruins/house.obj");
+    houseModel.SetShaderTextureNamePrefix("material.");
+
+    Model tankModel("resources/objects/tank/t90a.obj");
+    houseModel.SetShaderTextureNamePrefix("material.");
 
     Model moonModel("resources/objects/moon/Moon 2K.obj");
     moonModel.SetShaderTextureNamePrefix("material.");
@@ -405,8 +414,6 @@ int main() {
     bloomShader.use();
     bloomShader.setInt("scene", 0);
     bloomShader.setInt("bloomBlur", 1);
-    skyboxShader.use();
-    skyboxShader.setInt("skybox", 0);
 
     //draw in wireframe
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -464,7 +471,7 @@ int main() {
         glm::mat4 model = glm::mat4(1.0f);
         lightShader.setMat4("projection", projection);
         lightShader.setMat4("view", view);
-        for (unsigned int i = 0; i < 20; i++)
+        for (unsigned int i = 0; i < 18; i++)
         {
             model = glm::mat4(1.0f);
             model = glm::translate(model, pointLightPositions[i]);
@@ -508,11 +515,34 @@ int main() {
         modelShader.setMat4("model", modelHarrier);
         airplane2Model.Draw(modelShader);
 
+        //render house
+        glm::mat4 modelRuins = glm::mat4(1.0f);
+        modelRuins = glm::translate(modelRuins, glm::vec3(-39.3, -10.0f, -41.3f));
+        modelRuins = glm::rotate(modelRuins, (float)glm::radians(75.0) , glm::vec3(0.0f, 1.0f, 0.0f));
+        modelRuins = glm::scale(modelRuins, glm::vec3(glm::vec3(10.3f)));
+        modelShader.setMat4("model", modelRuins);
+        houseModel.Draw(modelShader);
+
+        //render tank
+        glm::mat4 modelT90 = glm::mat4(1.0f);
+        modelT90 = glm::translate(modelT90, glm::vec3(96, -17.0f, 6.0f));
+        modelT90 = glm::rotate(modelT90, (float)glm::radians(-93.0) , glm::vec3(0.0f, 1.0f, 0.0f));
+        modelT90 = glm::scale(modelT90, glm::vec3(glm::vec3(6.3f)));
+        modelShader.setMat4("model", modelT90);
+        tankModel.Draw(modelShader);
+
+        //render armored car
+        glm::mat4 modelCascavel = glm::mat4(1.0f);
+        modelCascavel = glm::translate(modelCascavel, glm::vec3(-71.3, -10.0f, -11.3f));
+        modelCascavel = glm::scale(modelCascavel, glm::vec3(glm::vec3(6.3f)));
+        modelShader.setMat4("model", modelCascavel);
+        carModel.Draw(modelShader);
+
         //reder defense
         glm::mat4 modelZsu = glm::mat4(1.0f);
         modelZsu = glm::translate(modelZsu, glm::vec3(115.0f, -14.0f, 34.0f));
         modelZsu = glm::rotate(modelZsu, (float)glm::radians(-90.0), glm::vec3(0.0f, 1.0, 0.0f));
-        modelZsu = glm::rotate(modelZsu, (float)glm::radians(180.0), glm::vec3(1.0f, 0.0f, 0.0f));
+       modelZsu = glm::rotate(modelZsu, (float)glm::radians(180.0), glm::vec3(1.0f, 0.0f, 0.0f));
         modelZsu = glm::scale(modelZsu, glm::vec3(glm::vec3(0.65f)));
         modelShader.setMat4("model", modelZsu);
         airdefModel.Draw(modelShader);
