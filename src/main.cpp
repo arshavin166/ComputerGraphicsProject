@@ -38,13 +38,13 @@ float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 bool blinn = false;
 bool blinnON = false;
-bool bloom = true;
+bool bloom = false;
 bool bloomON = false;
 bool hdr = false;
 bool hdrON = false;
 bool gammaEnabled = false;
 bool gammaON = false;
-float exposure = 0.824f;
+float exposure = 1.0f;
 bool grayscale = false;
 bool grayscaleON = false;
 
@@ -199,7 +199,7 @@ int main() {
     Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
     Shader lightShader("resources/shaders/model_lighting.vs", "resources/shaders/lightBullet.fs");
     Shader blurShader("resources/shaders/blur.vs", "resources/shaders/blur.fs");
-    Shader bloomShader("resources/shaders/bloom.vs", "resources/shaders/bloom.fs");
+    Shader bloomFinalShader("resources/shaders/bloomFinal.vs", "resources/shaders/bloomFinal.fs");
 
 //MODELS----------------------------------------------------------------------------------------------------------------
     //set stbi false
@@ -290,6 +290,8 @@ int main() {
             std::cout << "Framebuffer not complete!" << std::endl;
     }
 
+//B nesto---------------------------------------------------------------------------------------------------------------
+
 //LIGHTS----------------------------------------------------------------------------------------------------------------
     //directional light
     DirLight directional;
@@ -320,9 +322,9 @@ int main() {
     pointLightPositions.push_back(glm::vec3(81.0f, 22.0f, 54.0f));
 
     PointLight pointLights;
-    pointLights.ambient = glm::vec3(1.0f, 0.05f, 0.01f);
-    pointLights.diffuse = glm::vec3(1.0f, 0.05f, 0.01f);
-    pointLights.specular = glm::vec3(5.5f, 3.7f, 1.0f);
+    pointLights.ambient = glm::vec3(0.88f, 0.05f, 0.01f);
+    pointLights.diffuse = glm::vec3(0.99f, 0.05f, 0.01f);
+    pointLights.specular = glm::vec3(0.99f, 0.7f, 0.02f);
 
     //spotlight
     SpotLight spotlight;
@@ -411,9 +413,9 @@ int main() {
     lightShader.use();
     blurShader.use();
     blurShader.setInt("image", 0);
-    bloomShader.use();
-    bloomShader.setInt("scene", 0);
-    bloomShader.setInt("bloomBlur", 1);
+    bloomFinalShader.use();
+    bloomFinalShader.setInt("scene", 0);
+    bloomFinalShader.setInt("bloomBlur", 1);
 
     //draw in wireframe
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -438,7 +440,7 @@ int main() {
 
         //view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
-                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 500.0f);
+                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 700.0f);
         glm::mat4 view = programState->camera.GetViewMatrix();
         modelShader.setMat4("projection", projection);
         modelShader.setMat4("view", view);
@@ -477,7 +479,7 @@ int main() {
             model = glm::translate(model, pointLightPositions[i]);
             model = glm::scale(model, glm::vec3(0.45f)); // Make it a smaller cube
             lightShader.setMat4("model", model);
-            lightShader.setVec3("lightColor",glm::vec3(1.0f, 0.0f, 0.0f));
+            lightShader.setVec3("lightColor",glm::vec3(0.2f, 0.0f, 0.0f));
             renderCube();
         }
 
@@ -604,25 +606,25 @@ int main() {
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        bloomShader.use();
+        bloomFinalShader.use();
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, colorBuffers[0]);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, pingpongColorbuffers[!horizontal]);
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled);
-        bloomShader.setInt("SCR_WIDTH", SCR_WIDTH);
-        bloomShader.setInt("SCR_HEIGHT", SCR_HEIGHT);
+        bloomFinalShader.setInt("SCR_WIDTH", SCR_WIDTH);
+        bloomFinalShader.setInt("SCR_HEIGHT", SCR_HEIGHT);
 
-        bloomShader.setInt("hdr", hdr);
-        bloomShader.setInt("bloom", bloom);
-        bloomShader.setFloat("exposure", exposure);
-        bloomShader.setInt("gammaEnabled",gammaEnabled);
-        bloomShader.setInt("grayscale", grayscale);
+        bloomFinalShader.setInt("hdr", hdr);
+        bloomFinalShader.setInt("bloom", bloom);
+        bloomFinalShader.setFloat("exposure", exposure);
+        bloomFinalShader.setInt("gammaEnabled",gammaEnabled);
+        bloomFinalShader.setInt("grayscale", grayscale);
         renderQuad();
 
         std::cout << "hdr: " << (hdr ? "on" : "off") << std::endl;
-        std::cout << "bloom: " << (bloom ? "on" : "off") << "| exposure: " << exposure << std::endl;
+        std::cout << "bloom: " << (bloom ? "on" : "off") << " | exposure: " << exposure << std::endl;
         std::cout << (gammaEnabled ? "Gamma enabled" : "Gamma disabled") << std::endl;
 
 

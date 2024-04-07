@@ -1,4 +1,4 @@
-# Računarska Grafika - Projekat
+# Računarska Grafika - Projekat - Battlefield
 
 ---------------------
 # Komande
@@ -26,7 +26,7 @@
 # Implementirano iz A:
 - [x] Cubemaps
 
-- [ ] Anti Aliasing
+- [x] Anti Aliasing
 
 # Implementirano iz B:
 - [x] Bloom
@@ -34,6 +34,15 @@
 - [x] HDR
 
 <br>
+
+------------------------
+# Demonstration
+
+![nema alternative](resources/pics/1.png)
+![nema alternative](resources/pics/2.png)
+![nema alternative](resources/pics/3.png)
+![nema alternative](resources/pics/4.png)
+![nema alternative](resources/pics/5.png)
 
 ------------------------
 # Student:
